@@ -1,90 +1,98 @@
-from pywebcopy import save_website
+from pywebcopy.configs import get_config
 from cantidad_pag import extraer_num_pag_del_hilo
 import os
 import time
-import logueando
+import logueador
+import requests
 
 
 """Crea la carpeta de guardado de hilos en caso de no existir"""
 
-carpetas = os.listdir()
-if not "hilo" in carpetas:
+folder = os.listdir()
+if not "hilo" in folder:
     os.mkdir("hilo")
 
 """URL de la web"""
 
 url_fc = "https://forocoches.com/foro/showthread.php?t="
 
-
-numero_de_hilo = input("Introduzca número de hilo: ")
-numero_de_pagina = 0
+thread_number = input("Introduzca número de hilo: ")
 
 """Inicio de sesion web"""
 
-sesion = logueando.logearse("usuario","contraseña")
+credentials = open("credenciales.txt","r")
+credentials = credentials.readline()
+credentials = credentials.split("PASWORD:")
+pasword = credentials[1]
+username = credentials[0]
+username = username.split("USERNAME:")
+username = username[1]
+
+session = logueador.loguear_en_FC(username,pasword)
 
 """Extrae el título del hilo así como la cantidad de páginas en el"""
 
-title_and_num_of_pag_hilo = extraer_num_pag_del_hilo(url_fc,numero_de_hilo,sesion)
+title_and_num_of_pag_hilo = extraer_num_pag_del_hilo(url_fc,thread_number,session)
 
 titulo = title_and_num_of_pag_hilo[0]
-cantidad_paginas = int(title_and_num_of_pag_hilo[1])
+page_amount = int(title_and_num_of_pag_hilo[1])
 
-"""Descarga el hilo"""
+"""Si el titulo revela que no hay una cuenta iniciada avisa por consola y detiene el programa"""
 
-print("Descargando hilo: " + titulo)
+if titulo == "Forocoches ":
+    print("El hilo al que intenta acceder necesita una cuenta activa y/o tu cuenta no permite el acceso al hilo")
 
-for numero_de_pagina in range(cantidad_paginas):
-
-    print("Descargando la página: " + str(numero_de_pagina +1) + "/" + str(cantidad_paginas))
-
-    url = url_fc + str(numero_de_hilo) + "&page=" + str(numero_de_pagina +1)
-
-    save_website(url,project_folder="hilo/" + str(numero_de_hilo))
-               
-print("Hilo descargado con exito ")
-print("")
-
-
-"""Activar vigilia para que el hilo descargado este constantemente actualizado"""
-
-vigilia = input("¿Desea que la aplicación entre en modo vigilia y actualice el hilo? Si o No?")
-
-
-if vigilia == "SI" or "si" or "Si" or "sI":
-    vigilia = True
 else:
-    vigilia = False
+    
+    """Descarga el hilo"""
+
+    print("Descargando hilo: " + titulo)
 
 
-actualizacion_cantidad_paginas_anterior = cantidad_paginas
+    old_page_amount = 1
 
-while vigilia:
+    while 1:
 
-    title_and_num_of_pag_hilo = extraer_num_pag_del_hilo(url_fc,numero_de_hilo,sesion)
+        """Extrae la cantidad de páginas que contiene el hilo"""
 
-    actualizacion_cantidad_paginas = int(title_and_num_of_pag_hilo[1])
+        title_and_num_of_pag_hilo = extraer_num_pag_del_hilo(url_fc,thread_number,session)
 
-    if actualizacion_cantidad_paginas > actualizacion_cantidad_paginas_anterior:
+        new_page_amount = int(title_and_num_of_pag_hilo[1])
 
-        print("Actualizando hilo: " + str(actualizacion_cantidad_paginas) + "/" + str(actualizacion_cantidad_paginas))
+        """Va descargando paginas mientras las páginas paginas descargadas sean inferiores al monto total"""
 
-        url = url_fc + str(numero_de_hilo) + "&page=" + str(actualizacion_cantidad_paginas_anterior)
-        save_website(url,project_folder="hilo/" + str(numero_de_hilo))
+        if new_page_amount > old_page_amount:
 
-        url = url_fc + str(numero_de_hilo) + "&page=" + str(actualizacion_cantidad_paginas)
-        save_website(url,project_folder="hilo/" + str(numero_de_hilo))
+            print("Descargando página: " + str(old_page_amount) + "/" + str(new_page_amount))
 
-        actualizacion_cantidad_paginas_anterior = actualizacion_cantidad_paginas
+            url = url_fc + str(thread_number) + "&page=" + str(old_page_amount)
 
-    else:
+            conf = get_config(url,"hilo/"  + str(thread_number) )
+            webpage = conf.create_page()
+            webpage.session = session
+            webpage.get(url)
+            webpage.retrieve()
+            webpage.save_complete()
 
-        print("Actualizando hilo: " + str(actualizacion_cantidad_paginas) + "/" + str(actualizacion_cantidad_paginas))
+            old_page_amount = old_page_amount +1
 
-        url = url_fc + str(numero_de_hilo) + "&page=" + str(actualizacion_cantidad_paginas)
-        save_website(url,project_folder="hilo/" + str(numero_de_hilo))
+            """Cuando la cantidad de paginas descargadas es la misma que la cantidad de paginas a descargar solo descarga la ultima pagina a fin de tenerla siempre actualizada """
 
+        else:
 
+            print("Actualizando página: " + str(old_page_amount) + "/" + str(new_page_amount))
 
-    time.sleep(10)
+            url = url_fc + str(thread_number) + "&page=" + str(new_page_amount)
+
+            conf = get_config(url,"hilo/"  + str(thread_number) )
+            webpage = conf.create_page()
+            webpage.session = session
+            webpage.get(url)
+            webpage.retrieve()
+            webpage.save_complete()
+
+        time.sleep(1)
+        
+
+    
 

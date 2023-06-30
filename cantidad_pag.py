@@ -1,14 +1,12 @@
 from bs4 import BeautifulSoup
-import requests
 
 
 
+def extraer_num_pag_del_hilo(url_fc,thread_number,session):
 
-def extraer_num_pag_del_hilo(url_fc,numero_de_hilo,sesion):
+    url = url_fc + str(thread_number) + "&page=0"
 
-    url = url_fc + str(numero_de_hilo) + "&page=0"
-
-    r = sesion.get(url)
+    r = session.get(url)
     
     if r.status_code == 200:
 
@@ -17,35 +15,37 @@ def extraer_num_pag_del_hilo(url_fc,numero_de_hilo,sesion):
 
         soup = BeautifulSoup(r.text, 'lxml')
 
-        titulo_del_hilo = str(soup.title)
-        titulo_del_hilo = titulo_del_hilo.replace("<title>","")
-        titulo_del_hilo = titulo_del_hilo.split("-")
-        titulo_del_hilo = titulo_del_hilo[0]
+        thread_title = str(soup.title)
+        thread_title = thread_title.replace("<title>","")
+        thread_title = thread_title.split("-")
+        thread_title = thread_title[0]
 
 
-        enlaces = soup.find_all('a')
+        page_links = soup.find_all('a')
 
         url_bruta = ""
-        numero_de_paginas_del_hilo = 0
+        amount_pages_of_thread = 0
+        urls_list = []
 
-        for enlace in enlaces:
-            if ("showthread.php?t=" + str(numero_de_hilo) + "&amp;page=") and ("Mostrar Resultados") in str(enlace):
-                    url_bruta = str(enlace)
-                    
+        for link in page_links:
+            if ("showthread.php?t=" + str(thread_number) + "&amp;page=") and ("Mostrar Resultados") in str(link):
+                url_bruta = str(link)
+                url_bruta = url_bruta.replace('<a href="showthread.php?t=' + str(thread_number) + "&amp;page=","")
+                url_bruta = url_bruta.replace('"',"")
+                url_bruta = url_bruta.split(" ")
+                url_bruta = url_bruta[0]
+                amount_pages_of_thread = int(url_bruta)
 
-        if "page" in url_bruta:
-            url_bruta = url_bruta.replace('<a href="showthread.php?t=' + str(numero_de_hilo) + "&amp;page=","")
-            url_bruta = url_bruta.replace('"',"")
-            url_bruta.split(" ")
-            url_bruta = url_bruta[0]
-            numero_de_paginas_del_hilo = int(url_bruta)
+                urls_list.append(amount_pages_of_thread)
 
-        if numero_de_paginas_del_hilo == 0:
-            numero_de_paginas_del_hilo = 1
+        if urls_list == []:
+            urls_list.append(1)
+        
+        urls_list = sorted(urls_list)
 
-
+        amount_pages_of_thread = urls_list[-1]
+        
 
 
-    return titulo_del_hilo,numero_de_paginas_del_hilo
-
+    return thread_title,amount_pages_of_thread
 
